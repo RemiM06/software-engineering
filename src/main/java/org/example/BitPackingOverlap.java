@@ -1,6 +1,6 @@
 package org.example;
 
-public class BitPackingOverlap {
+public class BitPackingOverlap implements BitPacking {
     // Variables pour stocker les informations de compression
     private int[] compressed;      // Tableau compressé
     private int bitsPerElement;    // Nombre de bits par élément
@@ -110,6 +110,11 @@ public class BitPackingOverlap {
             result[i] = get(i);
         }
         return result;
+    }
+
+    @Override
+    public CompressionType getType() {
+        return CompressionType.OVERLAP;
     }
 
     public int getOriginalSize() { return originalSize; }

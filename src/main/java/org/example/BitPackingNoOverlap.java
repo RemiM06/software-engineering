@@ -1,6 +1,6 @@
 package org.example;
 
-public class BitPackingNoOverlap {
+public class BitPackingNoOverlap implements BitPacking {
     private int[] compressed;
     private int bitsPerElement;
     private int originalSize;
@@ -82,6 +82,11 @@ public class BitPackingNoOverlap {
             result[i] = get(i);
         }
         return result;
+    }
+
+    @Override
+    public CompressionType getType() {
+        return CompressionType.NO_OVERLAP;
     }
 
     // Getters

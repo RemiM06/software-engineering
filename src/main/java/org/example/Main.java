@@ -4,34 +4,40 @@ import java.util.Arrays;
 
 public class Main {
     public static void main(String[] args) {
-        // Test des deux versions
-        int[] original = {15, 7, 31, 3, 12};
+        int[] data = {15, 7, 31, 3, 12};
+        int[] largeData = new int[10000];
+        for (int i = 0; i < largeData.length; i++) {
+            largeData[i] = (int) (Math.random() * 100);
+        }
 
-        System.out.println("=== Version 1 : Overlap ===");
-        testOverlap(original);
+        BitPackingBenchmark.compare(largeData);
 
-        System.out.println("\n=== Version 2 : NoOverlap ===");
-        testNoOverlap(original);
+        System.out.println("=== Test avec Factory ===\n");
+
+        // Méthode 1 : Choix manuel
+        testWithType(data, CompressionType.OVERLAP);
+        testWithType(data, CompressionType.NO_OVERLAP);
+
+        // Méthode 2 : Choix automatique
+        System.out.println("=== Choix automatique ===");
+        BitPacking auto = BitPackingFactory.createAuto(data);
+        auto.compress(data);
+        System.out.println("Type choisi: " + auto.getType().getDescription());
+        System.out.println("Compression: " + auto.getCompressionRatio());
+        System.out.println("Décompressé: " + Arrays.toString(auto.decompress()));
     }
 
-    private static void testOverlap(int[] original) {
-        BitPackingOverlap bp1 = new BitPackingOverlap();
-        bp1.compress(original);
+    private static void testWithType(int[] data, CompressionType type) {
+        System.out.println("=== " + type.getDescription() + " ===");
 
-        System.out.println("Tableau: " + Arrays.toString(original));
-        System.out.println("Bits par élément: " + bp1.getBitsPerElement());
-        System.out.println("Taille compressée: " + bp1.getCompressedSize());
-        System.out.println("Décompressé: " + Arrays.toString(bp1.decompress()));
-    }
+        BitPacking bp = BitPackingFactory.create(type);
+        bp.compress(data);
 
-    private static void testNoOverlap(int[] original) {
-        BitPackingNoOverlap bp2 = new BitPackingNoOverlap();
-        bp2.compress(original);
-
-        System.out.println("Tableau: " + Arrays.toString(original));
-        System.out.println("Bits par élément: " + bp2.getBitsPerElement());
-        System.out.println("Éléments par int32: " + bp2.getElementsPerInt32());
-        System.out.println("Taille compressée: " + bp2.getCompressedSize());
-        System.out.println("Décompressé: " + Arrays.toString(bp2.decompress()));
+        System.out.println("Données: " + Arrays.toString(data));
+        System.out.println("Bits/élément: " + bp.getBitsPerElement());
+        System.out.println("Taille compressée: " + bp.getCompressedSize());
+        System.out.println("Ratio: " + bp.getCompressionRatio());
+        System.out.println("Décompressé: " + Arrays.toString(bp.decompress()));
+        System.out.println();
     }
 }
