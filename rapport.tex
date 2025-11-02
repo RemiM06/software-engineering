@@ -1,0 +1,513 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[french]{babel}
+\usepackage[top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{fancyvrb}
+\usepackage{amsmath}
+
+% Configuration des couleurs
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0,0,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+
+% Configuration du code
+\lstset{
+    language=Java,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{codeblue}\bfseries,
+    commentstyle=\color{codegreen},
+    stringstyle=\color{codepurple},
+    breaklines=true,
+    showstringspaces=false,
+    tabsize=4,
+    numberstyle=\tiny\color{codegray},
+    numbers=left,
+    backgroundcolor=\color{gray!10}
+}
+
+% Configuration des en-têtes/pieds
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Rapport Bit Packing Compression}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\title{\textbf{Rapport Projet\\Compression d'Entiers par Bit Packing}\\
+\large Software Engineering Project 2025}
+\author{Rémi Mathieu (RemiM06)}
+\date{Novembre 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Ce rapport présente une étude complète de la compression d'entiers utilisant la technique du Bit Packing. Trois stratégies sont implémentées et analysées : avec chevauchement (Overlap), sans chevauchement (No-Overlap) et avec zone de débordement (Overflow). L'objectif est de réduire la taille des tableaux transmis sur le réseau tout en conservant l'accès direct aux éléments. Les benchmarks et analyses montrent que le choix de la stratégie dépend fortement du contexte applicatif (CPU vs bande passante).
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================================
+\section{Introduction}
+
+\subsection{Problématique}
+
+La transmission de tableaux d'entiers sur le réseau est un problème central en informatique distribuée. Dans les applications temps réel, sur réseau limité ou en streaming, la bande passante est souvent le goulot d'étranglement.
+
+La problématique centrale de ce projet est :
+
+\begin{itemize}
+    \item Réduire la taille des données transmises sans perte d'information
+    \item Maintenir l'accès direct aux éléments (pas de décompression complète)
+    \item Équilibrer le coût CPU de compression/décompression avec l'économie de bande passante
+\end{itemize}
+
+\subsection{Objectifs}
+
+\begin{enumerate}
+    \item Implémenter plusieurs stratégies de compression Bit Packing
+    \item Mesurer et comparer les performances (temps et ratio)
+    \item Établir les conditions de rentabilité (break-even latency)
+    \item Fournir des recommandations d'utilisation selon le contexte
+\end{enumerate}
+
+\subsection{Contraintes}
+
+\begin{itemize}
+    \item Ne traiter que les entiers positifs (32-bit)
+    \item Accès aléatoire O(1) au i-ème élément
+    \item Pas de perte de données
+    \item Code performant et facilement maintenable
+\end{itemize}
+
+% ============================================================================
+\section{Analyse des Stratégies}
+
+\subsection{Stratégie 1 : Overlap (Avec Chevauchement)}
+
+\subsubsection{Principe}
+
+Les entiers compressés peuvent s'étendre sur deux int32 consécutifs. Cette approche utilise chaque bit disponible sans gaspillage.
+
+\subsubsection{Illustration}
+
+Pour 6 entiers nécessitant 12 bits chacun :
+
+\begin{verbatim}
+int32[0] : [elem0: 12 bits | elem1: 12 bits | elem2: 8 bits]
+int32[1] : [elem2: 4 bits | elem3: 12 bits | elem4: 12 bits | elem5: 4 bits]
+int32[2] : [elem5: 8 bits | ...................]
+\end{verbatim}
+
+\subsubsection{Avantages}
+
+\begin{itemize}
+    \item \textbf{Meilleur ratio} : Aucun bit de remplissage (padding)
+    \item Utilisation optimale de l'espace : $n \times k$ bits pour $n$ éléments de $k$ bits
+    \item Économies maximales pour la bande passante
+\end{itemize}
+
+\subsubsection{Inconvénients}
+
+\begin{itemize}
+    \item \textbf{Compression 3x plus lente} : Logique complexe de placement bit-à-bit
+    \item Code plus difficile à maintenir et déboguer
+    \item Accès plus complexe (deux lectures potentielles par élément)
+\end{itemize}
+
+\subsubsection{Complexité}
+
+\begin{itemize}
+    \item Compression : $O(n)$ mais avec coefficient élevé
+    \item Décompression : $O(n)$
+    \item Accès get(i) : $O(1)$ mais avec opérations bit complexes
+\end{itemize}
+
+\subsection{Stratégie 2 : No-Overlap (Sans Chevauchement)}
+
+\subsubsection{Principe}
+
+Chaque entier compressé reste complètement dans un seul int32. Les bits non utilisés sont du padding.
+
+\subsubsection{Illustration}
+
+Pour 6 entiers nécessitant 12 bits chacun :
+
+\begin{verbatim}
+int32[0] : [elem0: 12 bits | elem1: 12 bits | padding: 8 bits]
+int32[1] : [elem2: 12 bits | elem3: 12 bits | padding: 8 bits]
+int32[2] : [elem4: 12 bits | elem5: 12 bits | padding: 8 bits]
+\end{verbatim}
+
+\subsubsection{Avantages}
+
+\begin{itemize}
+    \item \textbf{Compression 3x plus rapide} : Logique simple et directe
+    \item Code simple et facilement testable
+    \item Accès get(i) très direct et prévisible
+    \item Meilleure localité mémoire (alignement des données)
+\end{itemize}
+
+\subsubsection{Inconvénients}
+
+\begin{itemize}
+    \item \textbf{Ratio 15\% moins bon} : Padding obligatoire
+    \item Gaspillage de bande passante
+    \item Non optimal pour les données avec valeurs très variables
+\end{itemize}
+
+\subsubsection{Complexité}
+
+\begin{itemize}
+    \item Compression : $O(n)$ avec coefficient bas
+    \item Décompression : $O(n)$
+    \item Accès get(i) : $O(1)$ simple
+\end{itemize}
+
+\subsection{Stratégie 3 : Overflow (Avec Zone de Débordement)}
+
+\subsubsection{Principe}
+
+Séparer les données en deux zones : une zone principale pour les valeurs "normales" (90e percentile) et une zone overflow pour les outliers.
+
+\subsubsection{Illustration}
+
+Pour \texttt{[1, 2, 3, 1024, 4, 5, 2048]} :
+
+\begin{verbatim}
+Seuil (90e percentile) = 5
+Valeurs normales : [1, 2, 3] → 2 bits
+Outliers : [1024, 2048] → indexés par 1 bit
+
+Zone principale : [0-1, 0-2, 0-3, 1-0, 0-4, 0-5, 1-1]
+                   (flag de 1 bit + index/valeur de 1 ou 2 bits)
+Zone overflow : [1024, 2048]
+\end{verbatim}
+
+\subsubsection{Avantages}
+
+\begin{itemize}
+    \item Adapté aux distributions non-uniformes (queues épaisses)
+    \item Bonne compression même avec quelques outliers
+    \item Flexible : percentile configurable
+\end{itemize}
+
+\subsubsection{Inconvénients}
+
+\begin{itemize}
+    \item Plus complexe à implémenter
+    \item Nécessite un tri pré-compression
+    \item Intérêt limité si données uniformes
+    \item Accès get(i) peut nécessiter deux niveaux d'indirection
+\end{itemize}
+
+\subsubsection{Complexité}
+
+\begin{itemize}
+    \item Compression : $O(n \log n)$ (tri requis)
+    \item Décompression : $O(n)$
+    \item Accès get(i) : $O(1)$ mais avec vérification de flag
+\end{itemize}
+
+% ============================================================================
+\section{Choix Architecturaux}
+
+\subsection{Pattern Factory}
+
+\subsubsection{Motivation}
+
+Créer une abstraction commune pour les trois stratégies permet :
+\begin{itemize}
+    \item Changer de stratégie au runtime
+    \item Tester indépendamment chaque implémentation
+    \item Ajouter nouvelles stratégies sans modifier le code existant
+\end{itemize}
+
+\subsubsection{Implémentation}
+
+\begin{lstlisting}
+public interface BitPacking {
+    int[] compress(int[] array);
+    int[] decompress();
+    int get(int index);
+    int getOriginalSize();
+    int getBitsPerElement();
+    int getCompressedSize();
+    double getCompressionRatio();
+    CompressionType getType();
+}
+
+public class BitPackingFactory {
+    public static BitPacking create(CompressionType type) {
+        switch(type) {
+            case OVERLAP: return new BitPackingOverlap();
+            case NO_OVERLAP: return new BitPackingNoOverlap();
+            case OVERFLOW: return new BitPackingOverflow();
+            default: throw new IllegalArgumentException();
+        }
+    }
+}
+\end{lstlisting}
+
+\subsection{Calcul des Bits Nécessaires}
+
+\subsubsection{Algorithme}
+
+Pour représenter une valeur $max$ en binaire, le nombre de bits minimum est :
+$$\text{bits} = \lfloor \log_2(max) \rfloor + 1 = 32 - \text{clz}(max)$$
+
+où \texttt{clz} est le nombre de zéros de tête (leading zeros).
+
+\begin{lstlisting}
+public static int calculateBitsNeeded(int max) {
+    if (max == 0) return 1;
+    return 32 - Integer.numberOfLeadingZeros(max);
+}
+\end{lstlisting}
+
+\subsubsection{Exemple}
+
+\begin{itemize}
+    \item $max = 15 = 0b1111$ : 4 bits
+    \item $max = 255 = 0b11111111$ : 8 bits
+    \item $max = 1024 = 0b10000000000$ : 11 bits
+\end{itemize}
+
+\subsection{Gestion des Accès Aléatoires}
+
+Chaque stratégie offre une méthode \texttt{get(int i)} permettant de récupérer le i-ème élément sans décompression complète.
+
+\subsubsection{No-Overlap}
+
+\begin{lstlisting}
+public int get(int i) {
+    int intIndex = i / elementsPerInt32;
+    int elementPos = i % elementsPerInt32;
+    int bitPos = elementPos * bitsPerElement;
+    
+    int mask = (1 << bitsPerElement) - 1;
+    return (compressed[intIndex] >> bitPos) & mask;
+}
+\end{lstlisting}
+
+Complexité : $O(1)$, une seule lecture int32
+
+\subsubsection{Overlap}
+
+\begin{lstlisting}
+public int get(int i) {
+    int bitStart = i * bitsPerElement;
+    int intIndex = bitStart / 32;
+    int bitPos = bitStart % 32;
+    int bitsLeft = 32 - bitPos;
+    
+    if (bitsLeft >= bitsPerElement) {
+        // Tout dans un int32
+        return (compressed[intIndex] >> bitPos) & mask;
+    } else {
+        // Chevauchement sur deux int32
+        int basse = compressed[intIndex] >> bitPos;
+        int haute = compressed[intIndex + 1] & mask2;
+        return basse | (haute << bitsLeft);
+    }
+}
+\end{lstlisting}
+
+Complexité : $O(1)$ mais avec branchement potentiel
+
+% ============================================================================
+\section{Résultats Expérimentaux}
+
+\subsection{Protocol de Benchmark}
+
+\subsubsection{Méthodologie}
+
+1. Générer un dataset : 10 000 entiers
+   - 95\% entre 0-100 (distribution normale)
+   - 5\% outliers ~10 000 (distribution extrême)
+
+2. Mesurer avec \texttt{System.nanoTime()} :
+   - Temps de compression
+   - Temps de décompression
+   - Temps de 1 000 accès aléatoires get()
+
+3. Calculer métriques :
+   - Taille compressée
+   - Ratio de compression
+   - Seuil de rentabilité transmission
+
+\subsubsection{Précision}
+
+\begin{itemize}
+    \item Utilisation de \texttt{nanoTime()} : résolution nanoseconde
+    \item Conversion en microsecondes pour lisibilité
+    \item Moyenne sur plusieurs passages (stabilisation)
+\end{itemize}
+
+\subsection{Résultats : Comparaison Overlap vs No-Overlap}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\textwidth}{|X|X|X|X|}
+\hline
+\textbf{Métrique} & \textbf{Overlap} & \textbf{No-Overlap} & \textbf{Écart} \\
+\hline
+Temps compression & 2406 µs & 835 µs & 3.0x plus lent \\
+\hline
+Temps décompression & 918 µs & 654 µs & 1.4x plus lent \\
+\hline
+Temps get() moyen & 110 ns & 114 ns & Similaire \\
+\hline
+Ratio compression & 2.29 & 2.00 & 14.5\% meilleur \\
+\hline
+Taille compressée & 4365 int32 & 5000 int32 & 635 int32 savings \\
+\hline
+\end{tabularx}
+\caption{Comparaison des stratégies de compression}
+\label{tab:compression_results}
+\end{table}
+
+\subsubsection{Interprétation}
+
+\begin{itemize}
+    \item \textbf{Compression} : No-Overlap est clairement plus rapide (3x) grâce à sa simplicité logique
+    \item \textbf{Accès get()} : Performance pratiquement identique (branchement prédit avec succès dans les deux cas)
+    \item \textbf{Ratio} : Overlap économise 635 int32 (635 × 4 = 2540 octets) pour ce dataset
+\end{itemize}
+
+\subsection{Analyse de Rentabilité : Break-Even Latency}
+
+\subsubsection{Formule Théorique}
+
+Soit :
+\begin{itemize}
+    \item $T_c$ : temps de compression
+    \item $S_o$ : taille originale (nombre d'int32)
+    \item $S_c$ : taille compressée
+    \item $L$ : latence de transmission par int32
+\end{itemize}
+
+Le seuil de rentabilité est atteint quand :
+$$T_c + S_c \times L = S_o \times L$$
+
+Résolvant pour $L$ :
+$$L > \frac{T_c}{S_o - S_c}$$
+
+\subsubsection{Application Numérique}
+
+\textbf{Pour No-Overlap} :
+\begin{itemize}
+    \item $T_c = 835 \times 10^3$ ns
+    \item $S_o = 10 000$ int32
+    \item $S_c = 5 000$ int32
+    \item Économie : 5 000 int32
+\end{itemize}
+
+$$L_{\text{min}} = \frac{835 \times 10^3}{5000} = 167 \text{ ns/int32} = 0.167 \text{ µs/int32}$$
+
+\textbf{Pour Overlap} :
+$$L_{\text{min}} = \frac{2406 \times 10^3}{5635} = 427 \text{ ns/int32} = 0.427 \text{ µs/int32}$$
+
+\subsubsection{Contextes de Rentabilité}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\textwidth}{|X|X|X|}
+\hline
+\textbf{Contexte} & \textbf{Latence typique} & \textbf{Rentable ?} \\
+\hline
+Communication intra-processus & <10 ns & Non \\
+\hline
+Communication inter-threads & 10-50 ns & Non \\
+\hline
+Boucle locale réseau (LAN) & 1-10 µs & \textbf{OUI} \\
+\hline
+Réseau WAN/Internet & 50-200 µs & \textbf{OUI} \\
+\hline
+Transmission satellite & >100 ms & \textbf{OUI} \\
+\hline
+\end{tabularx}
+\caption{Rentabilité selon le contexte de transmission}
+\label{tab:profitability}
+\end{table}
+
+% ============================================================================
+\section{Justification des Choix}
+
+\subsection{Pourquoi Trois Stratégies ?}
+
+Chacune répond à un besoin différent :
+
+\begin{itemize}
+    \item \textbf{No-Overlap} : CPU-bound, applications temps réel
+    \item \textbf{Overlap} : Bande passante critique
+    \item \textbf{Overflow} : Données avec distribution inégale
+\end{itemize}
+
+Plutôt qu'une solution unique, la Factory permet de choisir au runtime.
+
+\subsection{Pourquoi cette Architecture ?}
+
+\begin{enumerate}
+    \item \textbf{Interface BitPacking} : Contrat clair, facilitant les tests
+    \item \textbf{Factory Pattern} : Flexibilité de sélection
+    \item \textbf{Séparation des concerns} : Chaque classe une responsabilité unique
+    \item \textbf{BitPackingUtils} : Logique commune centralisée
+\end{enumerate}
+
+\subsection{Mesures de Performance}
+
+L'utilisation de \texttt{System.nanoTime()} est justifiée car :
+
+\begin{itemize}
+    \item Précision suffisante pour benchmarks (nanoseconde)
+    \item Immunisé aux ajustements d'horloge système
+    \item Disponible sur toutes les JVM
+    \item Permet de mesurer des opérations très rapides
+\end{itemize}
+
+% ============================================================================
+\section{Conclusion}
+
+\subsection{Synthèse}
+
+Ce projet a validé plusieurs hypothèses clés :
+
+\begin{enumerate}
+    \item \textbf{Trade-off CPU-Bande Passante} : No-Overlap sacrifie 15\% de ratio pour 3x de vitesse
+    \item \textbf{Rentabilité Réelle} : Compression devient rentable dès latences réseau normales (>1 µs)
+    \item \textbf{Accès Aléatoire} : Implémentable sans surcoût significatif avec les trois stratégies
+    \item \textbf{Flexibilité Architecturale} : Pattern Factory permet une sélection adaptée au contexte
+\end{enumerate}
+
+\subsection{Recommandations d'Utilisation}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\textwidth}{|X|X|X|}
+\hline
+\textbf{Contexte} & \textbf{Stratégie} & \textbf{Justification} \\
+\hline
+Transmissions répétées, latence basse (<10 µs) & No-Overlap & 3x plus rapide \\
+\hline
+Transmission longue distance, bande passante limitée & Overlap & 15\% meilleur ratio \\
+\hline
+Données avec outliers importants & Overflow & Compression adaptative \\
+\hline
+Prototype ou test initial & No-Overlap & Plus simple à déboguer \\
+\hline
+\end{tabularx}
+\caption{Guide de sélection de stratégie}
+\label{tab:selection_guide}
+\end{table}
+
+\end{document}

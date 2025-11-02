@@ -101,6 +101,11 @@ public class BitPackingOverflow implements BitPacking {
 
     @Override
     public int get(int index) {
+        if (index < 0 || index >= originalSize) {
+            throw new IndexOutOfBoundsException(
+                    "Index: " + index + ", Size: " + originalSize
+            );
+        }
         int intIndex = index / elementsPerInt32;
         int elementPos = index % elementsPerInt32;
         int totalBitsPerValue = 1 + Math.max(bitsPerElement, overflowBits);
