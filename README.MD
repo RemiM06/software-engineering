@@ -45,7 +45,7 @@ L'objectif est de réduire la taille des tableaux d'entiers transmis sur le rés
 ### 1. Cloner le dépôt
 
 ```bash
-git clone <votre-url-github>
+git clone "https://github.com/RemiM06/software-engineering"
 cd SoftwareEngineering-DataCompressing
 ```
 
