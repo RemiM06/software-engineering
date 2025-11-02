@@ -4,27 +4,7 @@ public class BitPackingNoOverlap implements BitPacking {
     private int[] compressed;
     private int bitsPerElement;
     private int originalSize;
-    private int elementsPerInt32;  // Nouveau : éléments par int32
-
-    /**
-     * Trouve le nombre de bits nécessaires
-     */
-    private int calculateBitsNeeded(int[] array) {
-        int max = 0;
-        for (int value : array) {
-            if (value > max) {
-                max = value;
-            }
-        }
-        if (max == 0) return 1;
-
-        int bits = 0;
-        while (max > 0) {
-            bits++;
-            max = max / 2;
-        }
-        return bits;
-    }
+    private int elementsPerInt32;
 
     /**
      * Compresse le tableau (sans chevauchement)
@@ -35,7 +15,13 @@ public class BitPackingNoOverlap implements BitPacking {
         }
 
         this.originalSize = array.length;
-        this.bitsPerElement = calculateBitsNeeded(array);
+
+        int max = 0;
+        for (int value : array) {
+            if (value > max) max = value;
+        }
+
+        this.bitsPerElement = BitPackingUtils.calculateBitsNeeded(max);
         this.elementsPerInt32 = 32 / bitsPerElement;
 
         // Calcul du nombre d'int32 nécessaires
@@ -93,6 +79,5 @@ public class BitPackingNoOverlap implements BitPacking {
     public int getOriginalSize() { return originalSize; }
     public int getBitsPerElement() { return bitsPerElement; }
     public int getCompressedSize() { return compressed.length; }
-    public int getElementsPerInt32() { return elementsPerInt32; }
     public double getCompressionRatio() { return (double) originalSize / compressed.length; }
 }

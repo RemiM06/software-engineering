@@ -19,37 +19,9 @@ public class BitPackingFactory {
             case NO_OVERLAP:
                 return new BitPackingNoOverlap();
             case OVERFLOW:
-                throw new UnsupportedOperationException("Overflow pas encore implémenté");
+                return new BitPackingOverflow();
             default:
                 throw new IllegalArgumentException("Type inconnu: " + type);
-        }
-    }
-
-    /**
-     * Sélectionne automatiquement la meilleure stratégie selon les données
-     * @param array données à compresser
-     * @return instance de BitPacking optimale
-     */
-    public static BitPacking createAuto(int[] array) {
-        if (array == null || array.length == 0) {
-            return new BitPackingNoOverlap();
-        }
-
-        // Calcul du nombre de bits nécessaires
-        int max = 0;
-        for (int value : array) {
-            if (value > max) max = value;
-        }
-
-        int bitsNeeded = (max == 0) ? 1 : 32 - Integer.numberOfLeadingZeros(max);
-        int elementsPerInt32 = 32 / bitsNeeded;
-
-        // Choix de la stratégie
-        // Si peu d'éléments par int32, le chevauchement est avantageux
-        if (elementsPerInt32 <= 2) {
-            return new BitPackingOverlap();
-        } else {
-            return new BitPackingNoOverlap();
         }
     }
 }

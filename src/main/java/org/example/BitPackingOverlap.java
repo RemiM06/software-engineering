@@ -2,31 +2,9 @@ package org.example;
 
 public class BitPackingOverlap implements BitPacking {
     // Variables pour stocker les informations de compression
-    private int[] compressed;      // Tableau compressé
-    private int bitsPerElement;    // Nombre de bits par élément
-    private int originalSize;      // Taille du tableau original
-
-    /**
-     * Trouve le nombre de bits nécessaires pour représenter le maximum
-     */
-    private int calculateBitsNeeded(int[] array) {
-        int max = 0;
-        for (int value : array) {
-            if (value > max) {
-                max = value;
-            }
-        }
-        // Si max = 0, on a besoin d'au moins 1 bit
-        if (max == 0) return 1;
-
-        // Compte les bits nécessaires pour représenter max
-        int bits = 0;
-        while (max > 0) {
-            bits++;
-            max = max / 2;
-        }
-        return bits;
-    }
+    private int[] compressed;
+    private int bitsPerElement;
+    private int originalSize;
 
     /**
      * Compresse le tableau d'entrée
@@ -37,8 +15,13 @@ public class BitPackingOverlap implements BitPacking {
         }
 
         this.originalSize = array.length;
-        this.bitsPerElement = calculateBitsNeeded(array);
 
+        int max = 0;
+        for (int value : array) {
+            if (value > max) max = value;
+        }
+
+        this.bitsPerElement = BitPackingUtils.calculateBitsNeeded(max);
         // Calcul du nombre d'int32 nécessaires
         int totalBits = originalSize * bitsPerElement;
         int compressedSize = (totalBits + 31) / 32; // Arrondi supérieur

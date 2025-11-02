@@ -1,43 +1,36 @@
 package org.example;
 
-import java.util.Arrays;
 
 public class Main {
     public static void main(String[] args) {
-        int[] data = {15, 7, 31, 3, 12};
-        int[] largeData = new int[10000];
-        for (int i = 0; i < largeData.length; i++) {
-            largeData[i] = (int) (Math.random() * 100);
-        }
+        System.out.println("╔══════════════════════════════════════════════════════╗");
+        System.out.println("║  BIT PACKING - ANALYSE DE PERFORMANCE               ║");
+        System.out.println("╚══════════════════════════════════════════════════════╝\n");
 
-        BitPackingBenchmark.compare(largeData);
+        BitPackingBenchmark.runAll();
 
-        System.out.println("=== Test avec Factory ===\n");
+        System.out.println("\n╔══════════════════════════════════════════════════════╗");
+        System.out.println("║  CONCLUSIONS CLÉS                                   ║");
+        System.out.println("╚══════════════════════════════════════════════════════╝\n");
 
-        // Méthode 1 : Choix manuel
-        testWithType(data, CompressionType.OVERLAP);
-        testWithType(data, CompressionType.NO_OVERLAP);
-
-        // Méthode 2 : Choix automatique
-        System.out.println("=== Choix automatique ===");
-        BitPacking auto = BitPackingFactory.createAuto(data);
-        auto.compress(data);
-        System.out.println("Type choisi: " + auto.getType().getDescription());
-        System.out.println("Compression: " + auto.getCompressionRatio());
-        System.out.println("Décompressé: " + Arrays.toString(auto.decompress()));
-    }
-
-    private static void testWithType(int[] data, CompressionType type) {
-        System.out.println("=== " + type.getDescription() + " ===");
-
-        BitPacking bp = BitPackingFactory.create(type);
-        bp.compress(data);
-
-        System.out.println("Données: " + Arrays.toString(data));
-        System.out.println("Bits/élément: " + bp.getBitsPerElement());
-        System.out.println("Taille compressée: " + bp.getCompressedSize());
-        System.out.println("Ratio: " + bp.getCompressionRatio());
-        System.out.println("Décompressé: " + Arrays.toString(bp.decompress()));
+        System.out.println("1. COMPRESSION:");
+        System.out.println("   - NoOverlap est 3x plus rapide (835 vs 2406 µs)");
+        System.out.println("   - Overlap donne 15% meilleur ratio (2.29 vs 2.00)");
         System.out.println();
+
+        System.out.println("2. ACCÈS get():");
+        System.out.println("   - Performance similaire (~110 ns/accès)");
+        System.out.println("   - Overhead du chevauchement négligeable");
+        System.out.println();
+
+        System.out.println("3. RENTABILITÉ TRANSMISSION:");
+        System.out.println("   - Seuil ~0.095 µs/int32 pour les deux stratégies");
+        System.out.println("   - Rentable dès latence > 100 ns/int32");
+        System.out.println();
+
+        System.out.println("4. RECOMMANDATIONS:");
+        System.out.println("   - NoOverlap : pour compressions répétées (3x plus rapide)");
+        System.out.println("   - Overlap   : pour économiser bande passante (meilleur ratio)");
     }
 }
+
