@@ -3,7 +3,7 @@ Voici un README.md complet pour votre projet :
 ```markdown
 # Bit Packing Compression - Software Engineering Project 2025
 
-**Auteur** : RemiM06
+**Auteur** : Remi Mathieu
 
 Projet de compression d'entiers utilisant la technique du Bit Packing pour accélérer les transmissions réseau.
 
